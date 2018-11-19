@@ -18,9 +18,9 @@
 #include <string.h>
 #include "HelperFile.h"			/* Few linked lists used primarly for drawings and logging. */
 
-//#define DEBUG				/* Forget that this egzists*/
-//#define DRAWNODES			/* If we want to draw nodes of our graph. */
-//#define PRINT				/* This one is not needed neither. */
+//#define DEBUG					/* Forget that this egzists*/
+//#define DRAWNODES				/* If we want to draw nodes of our graph. */
+//#define PRINT					/* This one is not needed neither. */
 
 #define XBORDER 700
 #define YBORDER 485
@@ -43,12 +43,11 @@ XTextProperty win_name, icon_name;
 char *win_name_string = "Two Robots - Offline Optimization - K=3 Server Problem";
 char *icon_name_string = "Icon For Window";
 
-KeySym keyR;				/* a dealie-bob to handle KeyPress Events */	
-char pb_txt[255];			/* a char buffer for KeyPress Events */
+KeySym keyR;	
+char pb_txt[255];
 
 XEvent report;
 
-/* ################################### Colors ############################################################# */
 GC gc, red, green, white, yellow, white_2, blue, blue_2, orange_2, orange, black, wallcolor;
 
 XGCValues gc_values, gc_orange_v, gc_orange_v2, gc_red_v, gc_blue_v, gc_blue_v2, gc_green_v,
@@ -56,39 +55,41 @@ XGCValues gc_values, gc_orange_v, gc_orange_v2, gc_red_v, gc_blue_v, gc_blue_v2,
 Colormap color_map;
 XColor tmp_color1, tmp_color2;
 unsigned long valuemask = 0;
-/*#########################################################################################################*/
+
 
 /* Robot Algorithm Functions */
 #define ROBOT_HEIGHT 12
 #define ROBOT_WIDTH 12
-#define R1_s_x 5
-#define R1_s_y 5
-#define R2_s_x 700
-#define R2_s_y 5
+#define R1_s_x 10
+#define R1_s_y 10
+#define R2_s_x 690
+#define R2_s_y 10
 #define R3_s_x 350
-#define R3_s_y 495
+#define R3_s_y 475
 
-struct Robot robot1 = {1, R1_s_x, R1_s_y, ROBOT_HEIGHT, ROBOT_WIDTH, 0.0, NULL};
-struct Robot robot2 = {2, R2_s_x, R2_s_y, ROBOT_HEIGHT, ROBOT_WIDTH, 0.0, NULL};
-struct Robot robot2 = {3, R2_s_x, R2_s_y, ROBOT_HEIGHT, ROBOT_WIDTH, 0.0, NULL};
+struct Robot robot1 = {1, R1_s_x, R1_s_y, ROBOT_HEIGHT, ROBOT_WIDTH, 0.0};
+struct Robot robot2 = {2, R2_s_x, R2_s_y, ROBOT_HEIGHT, ROBOT_WIDTH, 0.0};
+struct Robot robot3 = {3, R3_s_x, R3_s_y, ROBOT_HEIGHT, ROBOT_WIDTH, 0.0};
 
-void Robot_work(struct Pxy _reqpointxy);	/* Decision maker. Algorithm which decides which robot should move. */
+void RobotWork();
+
 void about_info();				/* Re/Draw info about our program. */
 
 /* Drawing Functions */
 void GetColors();	
-void Re_Draw();
+void redraw();
 int drw_rp = 0;
-void draw_line(GC _gc, int _x1, int _y1, int _x2, int _y2);
-void draw_segment(GC _gc, int __id, int _isEdge);
-void draw_request(GC _color, int _posx, int _posy, int _savetolist);
-void draw_robot(GC _color, int _posx, int _posy, int _height, int _width);
-void drawstring(GC _scolor, int sposx, int sposy, char *text);
-void drawint(GC _scolor, int sposx, int sposy, int);
-void drawdouble(GC _scolor, int sposx, int sposy, double inttodraw);
-void ClearArea(int _psx, int _psy, int _wclear, int _hclear, int _riseExposeEvent); 
+void draw_line(GC _gc, struct Pxy[]);
+void draw_request(GC _color, struct Pxy, int _savetolist);
+void draw_robot(GC _color, struct Robot);
 
-int main(int argc)
+void drawstring(GC _scolor, struct Pxy, char *text);
+void drawint(GC _scolor, struct Pxy, int);
+void drawdouble(GC _scolor, struct Pxy, double inttodraw);
+
+void clear_area(struct Pxy, int _wclear, int _hclear, int _riseExposeEvent); 
+
+int main(int argc, char **argv)
 {
 	/* Open Display: Try to connect to X server. */
 	display_ptr = XOpenDisplay(display_name);
@@ -152,7 +153,7 @@ int main(int argc)
 	      switch( report.type )
 	      {
 			case Expose:
-				Re_Draw(); 
+				redraw();
 				about_info();
 				break;
 
@@ -167,18 +168,23 @@ int main(int argc)
 				{	
 					if(_pxy.x < XBORDER && _pxy.y < YBORDER )
 					{
-						draw_request(green, _pxy.x, _pxy.y, 0);	/* Draw request point. */
+						draw_request(green, _pxy, 0);	/* Draw request point. */
 						drw_rp =1;
-						Re_Draw();
+						redraw();
 					}
 				}
-				else exit(-1);
+				else 
+				{
+					RobotWork();
+				}
 			}
 				break;
 			case KeyPress:
 			{	
 			     XLookupString(&report.xkey,pb_txt,255,&keyR,0);
-			     if(pb_txt[0] == 'e') { ClearArea(0, 0, win_width, win_height, 1);}
+				 struct Pxy p00 = {0,0};
+			     if(pb_txt[0] == 'e') { clear_area(p00, win_width, win_height, 1);}
+				 if(pb_txt[0] == 'q') exit(-1);
 			}
 				break;		
 			default: 
@@ -190,120 +196,101 @@ int main(int argc)
 	return 0;
 }
 
-/* ****************************************** */
-/* Drawing functions of segments, robots etc. */
-/* ****************************************** */
+void RobotWork()
+{
+
+}
 
 void redraw()
 { 
-	/* Sometimes we may want to draw edges of the possible roads */
-	#ifdef DRAWEDGES
-	 for(int l55 =0; l55<count_edges;l55++) 
-		draw_segment(white, l55,1);
-	#endif
-
-	/* Re-draw request points */
+	/* Redraw request points in case of expose. */
 	if(drw_rp ==1)
 	{ 
-	  for(int l2 = 0; l2<req_id; l2++)
-	  { 
-	    struct req_point* tmp_rq = GetPoint(l2); 
-            draw_request(green,tmp_rq->_req_x, tmp_rq->_req_y, 1);
-          }
+		for(int i = 0; i < request_count; i++)
+		{
+			struct RequestPoint *tmp_reqp = GetPoint(i);
+			struct Pxy reqp = {tmp_reqp->_req_x, tmp_reqp->_req_y};
+			draw_request(green, reqp, 1);
+		}
 	}
-
-	/* Re-draw robot's actual positions. */
-	draw_robot(blue, robot1.r_px, robot1.r_py, robot1.r_height, robot1.r_width);
-	draw_robot(orange, robot2.r_px, robot2.r_py, robot2.r_height, robot2.r_width);
+	draw_robot(blue, robot1);
+	draw_robot(orange, robot2);
+	draw_robot(yellow, robot3);
 }
 
-/* A draw a simple line. */
-void draw_line(GC _gc, int _x1, int _y1, int _x2, int _y2)
+void draw_line(GC _gc, struct Pxy _pxy[])
 {
-	XDrawLine(display_ptr, win, _gc, _x1, _y1, _x2, _y2);
+	XDrawLine(display_ptr, win, _gc, _pxy[0].x, _pxy[0].y, _pxy[1].x, _pxy[1].y);
 }
 
-/* Draw a segment/edge. */
-void draw_segment(GC _gc, int __id)
+void draw_robot(GC _color, struct Robot _rob)
 {
-	struct Seg* temp =GetSegById(__id);
-	if(temp!=NULL) 
-	draw_line(_gc, temp->_x1, temp->_y1, temp->_x2, temp->_y2);
+     XFillArc(display_ptr, win, _color, _rob.r_px-_rob.r_width/2, _rob.r_py-_rob.r_height/2, _rob.r_height, _rob.r_width,0,360*64);
 }
 
-/* Draw the position of the robot. */
-void draw_robot(GC _color, int _posx, int _posy, int _height, int _width)
-{
-     XFillArc(display_ptr, win, _color, _posx-_width/2, _posy-_height/2, _height, _width,0,360*64);
-}
-
-void draw_request(GC _color, int _posx, int _posy, int _isReDraw)
+void draw_request(GC _color, struct Pxy _pxy, int _isReDraw)
 {   
     if(_isReDraw == 0) 
-    {  AddRequestPoint(_posx, _posy); }
-    XFillArc( display_ptr, win, _color, _posx-7.5, _posy-7.5, 15, 15, 0, 360*64);
+    {  AddRequestPoint(_pxy); }
+    XFillArc( display_ptr, win, _color, _pxy.x-7.5, _pxy.y-7.5, 15, 15, 0, 360*64);
 }
 
-void drawstring(GC _scolor, int sposx, int sposy, char *text)
+void drawstring(GC _scolor, struct Pxy _pxy, char *text)
 {
-	XDrawString(display_ptr, win, _scolor, sposx, sposy, text, strlen(text));
+	XDrawString(display_ptr, win, _scolor, _pxy.x, _pxy.y, text, strlen(text));
 }
 
-void drawint(GC _scolor, int sposx, int sposy, int inttodraw)
+void drawint(GC _scolor, struct Pxy _pst, int inttodraw)
 {
 	char outtxt[50];
 	sprintf(outtxt,"%d", inttodraw);
 	char *tx = outtxt;
-	drawstring(_scolor, sposx, sposy, tx);
+	drawstring(_scolor, _pst, tx);
 }
 
-void drawdouble(GC _scolor, int sposx, int sposy, double inttodraw)
+void drawdouble(GC _scolor, struct Pxy _pxy, double inttodraw)
 {
 	char outtxt[50];
 	sprintf(outtxt,"%.2f", inttodraw);
 	char *tx = outtxt;
-	drawstring(_scolor, sposx, sposy, tx);
+	drawstring(_scolor, _pxy, tx);
 }
 
 /* Clear a certain area of the window. */
-void ClearArea(int _psx, int _psy, int _wclear, int _hclear, int _riseExposeEvent)
+void clear_area(struct Pxy _pxy, int _wclear, int _hclear, int _riseExposeEvent)
 {
-	XClearArea(display_ptr, win, _psx, _psy, _wclear, _hclear, _riseExposeEvent);
+	XClearArea(display_ptr, win, _pxy.x, _pxy.y, _wclear, _hclear, _riseExposeEvent);
 }
 
 void about_info()
 {
 	XDrawRectangle(display_ptr, win, white, 705, 0, 190, 80);
-	drawstring(blue, 708, 15, "ROBOT 1 Distance: ");
-	drawstring(orange_shadow, 708, 30, "ROBOT 2 Distance: ");
+	//drawstring(blue, 708, 15, "ROBOT 1 Distance: ");
 	XDrawRectangle(display_ptr, win, white, 0, 0, 700, 485);
-	drawstring(blue, 708, 45, "Last Travel Cost: ");
-	drawstring(orange_shadow, 708, 60, "Last Travel Cost: ");
-	drawstring(green, 708, 75, "Travel difference: ");
+	//drawstring(blue, 708, 45, "Last Travel Cost: ");
+	//drawstring(green, 708, 75, "Travel difference: ");
 
 	XDrawRectangle(display_ptr, win, wallcolor, 705, 85, 190, 80);
-	drawstring(white, 708, 100, "WEIGHTS OF PREDICTION: ");
-	drawstring(white, 708, 115, "Travel Diff. Weight    : ");
-	drawstring(white, 708, 130, "Distance Between Weight: ");
-	drawstring(white, 708, 145, "High Border D. Weight  : ");
-	drawstring(white, 708, 160, "Low Border D. Weight   : ");
-	drawdouble(green,860,115, disdiffWeight);
-	drawdouble(green,860,130, distWeight);
-	drawint(green,860,145, (int)simdistHighBorder);
-	drawint(green,860,160, (int)simdisLowBorder);
+	// drawstring(white, 708, 100, "WEIGHTS OF PREDICTION: ");
+	// drawstring(white, 708, 115, "Travel Diff. Weight    : ");
+	// drawstring(white, 708, 130, "Distance Between Weight: ");
+	// drawstring(white, 708, 145, "High Border D. Weight  : ");
+	// drawstring(white, 708, 160, "Low Border D. Weight   : ");
 
+	XDrawRectangle(display_ptr, win, wallcolor, 705, 170, 190, 80);
+	XDrawRectangle(display_ptr, win, wallcolor, 705, 255, 190, 80);
 	
-	XDrawRectangle(display_ptr,win,white,705,405,190,80);
-	drawstring(white, 708, 420, "Graph Search - Dijkstra");
-	drawstring(white, 708, 435, "2 Server Online Optimization");
-	drawstring(orange, 708, 450, "Advanced Algorithms");
-	drawstring(orange, 708, 465, "Lecturer: Peter Brass");
-	drawstring(green, 708, 480, "Author: Ejup Hoxha");
+	XDrawRectangle(display_ptr,win,white,705,340,190,145);
+	// drawstring(white, 708, 420, "Graph Search - Dijkstra");
+	// drawstring(white, 708, 435, "2 Server Online Optimization");
+	// drawstring(orange, 708, 450, "Advanced Algorithms");
+	// drawstring(orange, 708, 465, "Lecturer: Peter Brass");
+	// drawstring(green, 708, 480, "Author: Ejup Hoxha");
+
 }
 
-/* Initialize colors which we will mostly use. */
-void GetColors(){
-	/* To be able to draw on this window we need to create graphics context. */
+void GetColors()
+{
 	gc = XCreateGC(display_ptr, win, valuemask, &gc_values);
 	XSetForeground(display_ptr, gc, BlackPixel(display_ptr, screen_num));
 	XSetLineAttributes(display_ptr, gc, 4, LineSolid, CapRound, JoinRound);
