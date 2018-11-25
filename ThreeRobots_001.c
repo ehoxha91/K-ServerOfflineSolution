@@ -1,5 +1,5 @@
 /*	
-   gcc -o wnd TwoRobots_001.c -lX11 -lm -L/usr/X11R6/lib	--compile line	
+   gcc -o wnd ThreeRobots_001.c -lX11 -lm -L/usr/X11R6/lib	--compile line	
    
    Student:    Ejup Hoxha 
    Semester:   Fall 2018 - 
@@ -170,10 +170,10 @@ int main(int argc, char **argv)
 					{
 						draw_request(green, _pxy, 0);	/* Draw request point. */
 						drw_rp =1;
-						redraw();
+						redraw();						/* We just added one new so re-draw everything. */
 					}
 				}
-				else 
+				else if(report.xbutton.button == Button3 ) 
 				{
 					RobotWork();
 				}
