@@ -5,6 +5,12 @@
    University: City University of New York - Groove School of Engineering
 */
 
+struct Servers
+{
+	int id;
+	int position;
+};
+
 struct Seg
 {
 	int _id;
@@ -113,7 +119,68 @@ void DeleteRequestPoints()
 }
 #pragma endregion
 
+struct GraphNode
+{
+	int reqp_id;
+	int rpx, rpy;
+	double neigbours_weight[30];
+};
 
+struct GraphNode graphlist[30]; 
 
+double calcostnodes(struct GraphNode _from, struct GraphNode _to)
+{
+	double ax = powl(_from.rpx-_to.rpx, 2);
+ 	double ay = powl(_from.rpy-_to.rpy, 2);
+ 	return sqrtl(ax+ay);
+}
 
+int nodecount = 0;
+void CreateGraph()
+{
+	struct RequestPoint *reqpoint = NULL;
+	struct RequestPoint *reqpoint2 = NULL;
+	for(int i = 0; i < request_count; i++)
+	{
+			reqpoint = GetPoint(i);
+			struct GraphNode _node;
+			_node.reqp_id = reqpoint->rp_id;
+			_node.rpx = reqpoint->_req_x;
+			_node.rpy = reqpoint->_req_y;
+			/* now fill cost matrix of this node*/
+			for(int j = 0; j < request_count; j++)
+			{
+				/* If we found ourselves. */
+				if(i==j) _node.neigbours_weight[j] = 0;
+				else
+				{
+					reqpoint2 = GetPoint(j);
+					struct GraphNode tmpnode;
+					tmpnode.rpx = reqpoint2->_req_x;
+					tmpnode.rpy = reqpoint2->_req_y;
+					_node.neigbours_weight[j] = calcostnodes(_node, tmpnode);
+				}
+			}
+			graphlist[i] = _node;	
+			nodecount++;	
+	}
+}
+
+void PrintGraph()
+{
+	printf("{");
+	for(int i = 0; i < nodecount; i++)
+	{
+		struct GraphNode tempnode = graphlist[i];
+		printf(",{");
+		for(int j = 0; j < nodecount; j++)
+		{
+			printf("Node[%d]COST[%d] = %f\n",i,j,tempnode.neigbours_weight[j]);
+			//printf(",%Lf",tempnode.neigbours_weight[j]);
+		}
+		printf("}\n");
+	}
+	printf("}");
+	
+}
 
