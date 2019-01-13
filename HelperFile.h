@@ -15,13 +15,14 @@ struct Seg
 {
 	int _id;
 	int _x1, _x2, _y1, _y2;
+	int _color;
 	struct Seg *next;
 };
 
 int count_seg =0;
 struct Seg *current = NULL;	/* Top of the stack. */
 
-void AddSegment(int __id, int __x1, int __y1, int __x2, int __y2)
+void AddSegment(int __id, int __x1, int __y1, int __x2, int __y2, int __color)
 {
 	struct Seg* temp = (struct Seg*)malloc(sizeof(struct Seg));
 	temp->_id = __id;
@@ -29,6 +30,7 @@ void AddSegment(int __id, int __x1, int __y1, int __x2, int __y2)
 	temp->_y1 = __y1;
 	temp->_x2 = __x2;
 	temp->_y2 = __y2;
+	temp->_color = __color;
 	temp->next = current;
 	current = temp;
 	count_seg ++;

@@ -17,6 +17,9 @@
 #include <math.h>
 #include <string.h>
 #include "HelperFile.h"			/* Few linked lists used primarly for drawings and logging. */
+#include "mQueue.h"
+
+#define INF 9999999
 
 //#define DEBUG					/* Forget that this egzists*/
 //#define DRAWNODES				/* If we want to draw nodes of our graph. */
@@ -67,11 +70,30 @@ unsigned long valuemask = 0;
 #define R3_s_x 350
 #define R3_s_y 475
 
+/* Functions- before adapting to graphical project. */
+void GenerateNeigbors(struct Vertex);
+void GeneratePermutations();
+void FindOptSolution();
+void InitializeAlgorithm();
+double distance(int, int, int);
+
+int s1, s2, s3, position;
+int subsolutions_count = 0;
+int subsolutions_id[20000000];
+struct Vertex bookkeeping[20000000];
+int solution[30];
+int stepmoves[3]; 
+struct Servers servers[3];
+struct Vertex worknode;
+struct Vertex minEndPosition = { 0,0,0,0,0,0,0,0,0,0,INF * 100 };
+double graph[30][30];
+
 struct Robot robot1 = {1, R1_s_x, R1_s_y, ROBOT_HEIGHT, ROBOT_WIDTH, 0.0};
 struct Robot robot2 = {2, R2_s_x, R2_s_y, ROBOT_HEIGHT, ROBOT_WIDTH, 0.0};
 struct Robot robot3 = {3, R3_s_x, R3_s_y, ROBOT_HEIGHT, ROBOT_WIDTH, 0.0};
-
-void RobotWork();
+struct GraphNode rb1 = {-1, R1_s_x, R1_s_y};
+struct GraphNode rb2 = {-1, R2_s_x, R2_s_y};
+struct GraphNode rb3 = {-1, R3_s_x, R3_s_y};
 
 void about_info();				/* Re/Draw info about our program. */
 
@@ -82,6 +104,7 @@ int drw_rp = 0;
 void draw_line(GC _gc, struct Pxy[]);
 void draw_request(GC _color, struct Pxy, int _savetolist);
 void draw_robot(GC _color, struct Robot);
+void MoveServer(struct Robot, struct RequestPoint*);
 
 void drawstring(GC _scolor, struct Pxy, char *text);
 void drawint(GC _scolor, struct Pxy, int);
@@ -169,13 +192,17 @@ int main(int argc, char **argv)
 					if(_pxy.x < XBORDER && _pxy.y < YBORDER )
 					{
 						draw_request(green, _pxy, 0);	/* Draw request point. */
+						_pxy.y -=10;
+						_pxy.x -=2;
+						drawint(white, _pxy, request_count);
 						drw_rp =1;
 						redraw();						/* We just added one new so re-draw everything. */
 					}
 				}
 				else if(report.xbutton.button == Button3 ) 
 				{
-					RobotWork();
+					CreateGraph();
+					InitializeAlgorithm();			
 				}
 			}
 				break;
@@ -196,10 +223,220 @@ int main(int argc, char **argv)
 	return 0;
 }
 
-void RobotWork()
-{
+/* ############################# Algorithm ################################## */
 
+void InitializeAlgorithm()
+{
+	/* From linked list to adjcency matrix graph. */
+	for(int i = 0; i < request_count+3; i++)
+	{
+		for(int j = 0; j < request_count+3; j++)
+		{	if(i==j) graph[i][j] = 0.0; else graph[i][j] = INF; }}
+						
+	for(int i = 0; i < 3; i++)
+	{
+		for(int j = 3; j < request_count+3; j++)
+		{
+			struct GraphNode _to = graphlist[j-3];
+			switch (i)
+			{
+				case 0:
+					graph[i][j] = calcostnodes(rb1,_to);
+					break;
+				case 1:
+					graph[i][j] = calcostnodes(rb2,_to);
+					break;
+				case 2:
+					graph[i][j] = calcostnodes(rb3,_to);
+					break;
+				default: printf("Something wrong with graph generator!");
+					break;
+			}
+		}
+	}
+	for(int i = 3; i < request_count+3; i++)
+	{
+		for(int j = 3; j < request_count+3; j++)
+		{graph[i][j] = graphlist[i-3].neigbours_weight[j-3];}	
+	}
+
+	#ifdef PRINT					
+	for(int i = 0; i < request_count+3; i++)
+	{
+		printf(",{");
+		for(int j = 0; j < request_count+3; j++)
+		{	printf("graph[%d][%d] = %f\n",i,j,graph[i][j]);}
+			printf("}\n");
+	}
+	#endif
+	
+
+	for (int i = 0; i < 30; i++)
+	{
+		solution[i] = -1;
+	}
+	for (int i = 0; i < 15000; i++)
+	{
+		subsolutions_id[i] = -1;
+	}
+	s1 = 1, s2 = 2, s3 = 3;
+	GeneratePermutations();
 }
+int state_id = 0;
+void GeneratePermutations()
+{
+	struct Vertex start0 = { state_id,0,0,0,0,0,0,0,0 };
+	state_id++;
+	GenerateNeigbors(start0);
+	while (vcounter>0)
+	{
+		Pop();
+		GenerateNeigbors(mVertex);
+	}
+	printf("Neighbours generated!\n");
+	FindOptSolution();
+	redraw();
+}
+
+double currentminimum = INF+100;
+void GenerateNeigbors(struct Vertex _vertex)
+{
+	if (_vertex.npos + 1 <= request_count)
+	{
+		struct Vertex _v1 = { state_id, _vertex.npos + 1, _vertex.s2pos, _vertex.s3pos, _vertex.npos + 1,  _vertex.s1pos, _vertex.s2pos, _vertex.s3pos, _vertex.npos };
+		state_id++;
+		struct Vertex _v2 = { state_id, _vertex.s1pos, _vertex.npos + 1, _vertex.s3pos, _vertex.npos + 1,   _vertex.s1pos, _vertex.s2pos, _vertex.s3pos, _vertex.npos };
+		state_id++;
+		struct Vertex _v3 = { state_id, _vertex.s1pos, _vertex.s2pos, _vertex.npos + 1, _vertex.npos + 1,  _vertex.s1pos, _vertex.s2pos, _vertex.s3pos, _vertex.npos };
+		state_id++;
+
+		_v1.p_id = _vertex.id;
+		_v1.cost = _vertex.cost + distance(_vertex.s1pos, _vertex.npos + 1, s1);
+
+		_v2.p_id = _vertex.id;
+		_v2.cost = _vertex.cost + distance(_vertex.s2pos, _vertex.npos + 1, s2);
+
+		_v3.p_id = _vertex.id;
+		_v3.cost = _vertex.cost + distance(_vertex.s3pos, _vertex.npos + 1, s3);
+
+		bookkeeping[state_id-3] = _v1;
+		bookkeeping[state_id-2] = _v2;
+		bookkeeping[state_id-1] = _v3;
+		
+		/*We have to keep generating every possible solution. */
+		Push(_v1);
+		Push(_v2);
+		Push(_v3);
+
+	
+		/* Let's keep ID-s of subsolutions, the end-configurations after we serve all request points.*/
+		if (_vertex.npos + 1 == request_count)
+		{
+			if (minEndPosition.cost > _v1.cost)
+				minEndPosition = _v1;
+			if (minEndPosition.cost > _v2.cost)
+				minEndPosition = _v2;
+			if (minEndPosition.cost > _v3.cost)
+				minEndPosition = _v3;
+		}
+	}
+}
+
+void FindOptSolution()
+{
+	int stepcounter = 0;
+	solution[0] = minEndPosition.id;
+	stepcounter++;
+	solution[stepcounter]=minEndPosition.p_id;
+	struct Vertex tmp;
+	tmp = bookkeeping[minEndPosition.p_id];
+	while (1)
+	{
+		if (tmp.p_id == 0)
+			break;
+		stepcounter++;
+		solution[stepcounter] = tmp.p_id;
+		tmp = bookkeeping[tmp.p_id];
+	}
+	struct Vertex comparator;
+	comparator.s1pos = 0;
+	comparator.s2pos = 0;
+	comparator.s3pos = 0;
+	for (int i = stepcounter; i >= 0; i--)
+	{
+		tmp = bookkeeping[solution[i]];
+		
+		if (comparator.s1pos != tmp.s1pos)
+		{
+			//MoveServer1;
+			struct RequestPoint* reqTemp = GetPoint(tmp.npos-1);
+			MoveServer(robot1,reqTemp);
+			//printf("Server 1 moved to position %d\n", tmp.npos);
+		}
+		else if (comparator.s2pos != tmp.s2pos)
+		{
+			//MoveServer2;
+			struct RequestPoint* reqTemp = GetPoint(tmp.npos-1);
+			MoveServer(robot2,reqTemp);
+			//printf("Server 2 moved to position %d\n", tmp.npos);
+		}
+		else if (comparator.s3pos != tmp.s3pos)
+		{
+			//MoveServer3;
+			struct RequestPoint* reqTemp = GetPoint(tmp.npos-1);
+			MoveServer(robot3,reqTemp);
+			//printf("Server 3 moved to position %d\n", tmp.npos);
+		}
+		comparator = tmp;
+	}
+}
+
+double distance(int _pos1, int _pos2, int _server)
+{
+	if (_pos1 == 0)	/* If we have to move a server that didn't move before. */
+	{
+		switch (_server)
+		{
+		case 1:
+			return graph[0][_pos2+2];
+			break;
+		case 2:
+			return graph[1][_pos2+2];
+			break;
+		case 3:
+			return graph[2][_pos2+2];
+			break;
+		}
+	}
+	return graph[_pos1+2][_pos2+2];
+}
+
+void MoveServer(struct Robot rb, struct RequestPoint* reqPoint)
+{
+	AddSegment(count_seg, rb.r_px, rb.r_py, reqPoint->_req_x, reqPoint->_req_y, rb.r_id);
+	switch(rb.r_id)
+	{
+		case 1:
+			XDrawLine(display_ptr, win, blue_2, rb.r_px, rb.r_py, reqPoint->_req_x, reqPoint->_req_y);
+			robot1.r_px = reqPoint->_req_x;
+			robot1.r_py = reqPoint->_req_y;
+		break;
+		case 2:
+			XDrawLine(display_ptr, win, orange_2, rb.r_px, rb.r_py, reqPoint->_req_x, reqPoint->_req_y);
+			robot2.r_px = reqPoint->_req_x;
+			robot2.r_py = reqPoint->_req_y;
+		break;
+		case 3:
+			XDrawLine(display_ptr, win, yellow, rb.r_px, rb.r_py, reqPoint->_req_x, reqPoint->_req_y);
+			robot3.r_px = reqPoint->_req_x;
+			robot3.r_py = reqPoint->_req_y;
+		break;
+		default:
+		break;
+	}
+}
+
+/* ################################################################################### */
 
 void redraw()
 { 
@@ -211,11 +448,38 @@ void redraw()
 			struct RequestPoint *tmp_reqp = GetPoint(i);
 			struct Pxy reqp = {tmp_reqp->_req_x, tmp_reqp->_req_y};
 			draw_request(green, reqp, 1);
+			reqp.y -=10;
+			reqp.x -=2;
+			drawint(white, reqp, i+1);
 		}
 	}
+	
+	for(int i = 0; i < count_seg; i++)
+	{
+		struct Seg* tmp = GetSegById(i);
+		GC _col;
+		switch(tmp->_color)
+		{
+			case 1: _col = blue_2; break;
+			case 2: _col = orange_2; break;
+			case 3: _col = yellow; break;
+			default: printf("Bad color given for robot traveled road!\n");
+			break;
+		}
+		XDrawLine(display_ptr, win, _col, tmp->_x1, tmp->_y1, tmp->_x2, tmp->_y2);
+	}
+	
 	draw_robot(blue, robot1);
 	draw_robot(orange, robot2);
-	draw_robot(yellow, robot3);
+	draw_robot(yellow, robot3);	
+
+	/* Draw initial robot pos*/
+	struct Robot r1 = {1, R1_s_x, R1_s_y, ROBOT_HEIGHT, ROBOT_WIDTH, 0.0};
+	struct Robot r2 = {2, R2_s_x, R2_s_y, ROBOT_HEIGHT, ROBOT_WIDTH, 0.0};
+	struct Robot r3 = {3, R3_s_x, R3_s_y, ROBOT_HEIGHT, ROBOT_WIDTH, 0.0};
+	draw_robot(blue, r1);
+	draw_robot(orange, r2);
+	draw_robot(yellow, r3);	
 }
 
 void draw_line(GC _gc, struct Pxy _pxy[])
@@ -264,29 +528,16 @@ void clear_area(struct Pxy _pxy, int _wclear, int _hclear, int _riseExposeEvent)
 
 void about_info()
 {
+	struct Pxy _pxy = {708,15};
 	XDrawRectangle(display_ptr, win, white, 705, 0, 190, 80);
-	//drawstring(blue, 708, 15, "ROBOT 1 Distance: ");
 	XDrawRectangle(display_ptr, win, white, 0, 0, 700, 485);
-	//drawstring(blue, 708, 45, "Last Travel Cost: ");
-	//drawstring(green, 708, 75, "Travel difference: ");
-
-	XDrawRectangle(display_ptr, win, wallcolor, 705, 85, 190, 80);
-	// drawstring(white, 708, 100, "WEIGHTS OF PREDICTION: ");
-	// drawstring(white, 708, 115, "Travel Diff. Weight    : ");
-	// drawstring(white, 708, 130, "Distance Between Weight: ");
-	// drawstring(white, 708, 145, "High Border D. Weight  : ");
-	// drawstring(white, 708, 160, "Low Border D. Weight   : ");
-
-	XDrawRectangle(display_ptr, win, wallcolor, 705, 170, 190, 80);
-	XDrawRectangle(display_ptr, win, wallcolor, 705, 255, 190, 80);
-	
-	XDrawRectangle(display_ptr,win,white,705,340,190,145);
-	// drawstring(white, 708, 420, "Graph Search - Dijkstra");
-	// drawstring(white, 708, 435, "2 Server Online Optimization");
-	// drawstring(orange, 708, 450, "Advanced Algorithms");
-	// drawstring(orange, 708, 465, "Lecturer: Peter Brass");
-	// drawstring(green, 708, 480, "Author: Ejup Hoxha");
-
+	drawstring(white, _pxy, "3-Server Offline Optimization");
+	_pxy.y = 30;
+	drawstring(white, _pxy, "Advanced Algorithms");
+	_pxy.y = 45;
+	drawstring(orange, _pxy, "Lecturer: Peter Brass");
+	_pxy.y = 60;
+	drawstring(green, _pxy, "Author: Ejup Hoxha");
 }
 
 void GetColors()
