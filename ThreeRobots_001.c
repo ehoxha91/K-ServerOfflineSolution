@@ -72,6 +72,8 @@ unsigned long valuemask = 0;
 
 /* Functions- before adapting to graphical project. */
 void GenerateNeigbors(struct Vertex);
+void GenerateNeigbors1(struct Vertex);
+void GenerateNeigbors2(struct Vertex);
 void GeneratePermutations();
 void FindOptSolution();
 void InitializeAlgorithm();
@@ -310,41 +312,38 @@ void GeneratePermutations()
 double currentminimum = INF+100;
 void GenerateNeigbors(struct Vertex _vertex)
 {
+	int expid = 0;
 	if (_vertex.npos + 1 <= request_count)
 	{
-		struct Vertex _v1 = { state_id, _vertex.npos + 1, _vertex.s2pos, _vertex.s3pos, _vertex.npos + 1,  _vertex.s1pos, _vertex.s2pos, _vertex.s3pos, _vertex.npos };
-		state_id++;
-		struct Vertex _v2 = { state_id, _vertex.s1pos, _vertex.npos + 1, _vertex.s3pos, _vertex.npos + 1,   _vertex.s1pos, _vertex.s2pos, _vertex.s3pos, _vertex.npos };
-		state_id++;
-		struct Vertex _v3 = { state_id, _vertex.s1pos, _vertex.s2pos, _vertex.npos + 1, _vertex.npos + 1,  _vertex.s1pos, _vertex.s2pos, _vertex.s3pos, _vertex.npos };
-		state_id++;
-
-		_v1.p_id = _vertex.id;
+		struct Vertex _v1 = { state_id, _vertex.npos + 1, _vertex.s2pos, _vertex.s3pos, _vertex.npos + 1, _vertex.id,  _vertex.s1pos, _vertex.s2pos, _vertex.s3pos, _vertex.npos };
 		_v1.cost = _vertex.cost + distance(_vertex.s1pos, _vertex.npos + 1, s1);
-
-		_v2.p_id = _vertex.id;
-		_v2.cost = _vertex.cost + distance(_vertex.s2pos, _vertex.npos + 1, s2);
-
-		_v3.p_id = _vertex.id;
-		_v3.cost = _vertex.cost + distance(_vertex.s3pos, _vertex.npos + 1, s3);
-
-		bookkeeping[state_id-3] = _v1;
-		bookkeeping[state_id-2] = _v2;
-		bookkeeping[state_id-1] = _v3;
-		
-		/*We have to keep generating every possible solution. */
+		bookkeeping[state_id] = _v1;
+		state_id++;
 		Push(_v1);
+		
+
+		struct Vertex _v2 = { state_id, _vertex.s1pos, _vertex.npos + 1, _vertex.s3pos, _vertex.npos+1, _vertex.id, _vertex.s1pos, _vertex.s2pos, _vertex.s3pos, _vertex.npos };
+		_v2.cost = _vertex.cost + distance(_vertex.s2pos, _vertex.npos + 1, s2);
+		bookkeeping[state_id] = _v2;
+		state_id++;
 		Push(_v2);
+
+		struct Vertex _v3 = { state_id, _vertex.s1pos, _vertex.s2pos, _vertex.npos + 1, _vertex.npos+1, _vertex.id, _vertex.s1pos, _vertex.s2pos, _vertex.s3pos, _vertex.npos };
+		_v3.cost = _vertex.cost + distance(_vertex.s3pos, _vertex.npos + 1, s3);
+		bookkeeping[state_id] = _v3;
+		state_id++;
 		Push(_v3);
+
+		/*We have to keep generating every possible solution. */
 
 		/* Let's keep ID-s of subsolutions, the end-configurations after we serve all request points.*/
 		if (_vertex.npos + 1 == request_count)
 		{
 			if (minEndPosition.cost > _v1.cost)
 				minEndPosition = _v1;
-			else if (minEndPosition.cost > _v2.cost)
+			if (minEndPosition.cost > _v2.cost)
 				minEndPosition = _v2;
-			else if (minEndPosition.cost > _v3.cost)
+			if (minEndPosition.cost > _v3.cost)
 				minEndPosition = _v3;
 		}
 	}
@@ -356,44 +355,40 @@ void GenerateNeigbors1(struct Vertex _vertex)
 	if (_vertex.npos + 1 <= request_count)
 	{
 		expid = (_vertex.npos + 1) * 10000 + _vertex.s2pos * 100 + _vertex.s3pos;
-
-		struct Vertex _v1 = { state_id, _vertex.npos + 1, _vertex.s2pos, _vertex.s3pos, _vertex.npos + 1,  _vertex.s1pos, _vertex.s2pos, _vertex.s3pos, _vertex.npos };
-			_v1.p_id = _vertex.id;
-			_v1.cost = _vertex.cost + distance(_vertex.s1pos, _vertex.npos + 1, s1);
-			if(_v1.cost < exploredcost[expid])
-			{
-				exploredcost[expid] = _v1.cost;
-				bookkeeping[state_id] = _v1;
-				state_id++;
-				Push(_v1);
-				explored[expid] = 1;
-			}
+		struct Vertex _v1 = { state_id, _vertex.npos + 1, _vertex.s2pos, _vertex.s3pos, _vertex.npos + 1, _vertex.id,  _vertex.s1pos, _vertex.s2pos, _vertex.s3pos, _vertex.npos };
+		_v1.cost = _vertex.cost + distance(_vertex.s1pos, _vertex.npos + 1, s1);
+		if(_v1.cost < exploredcost[expid])
+		{
+			exploredcost[expid] = _v1.cost;
+			bookkeeping[state_id] = _v1;
+			state_id++;
+			Push(_v1);
+			explored[expid] = 1;
+		}
 		
 		expid = (_vertex.npos + 1) * 100 + _vertex.s1pos * 10000 + _vertex.s3pos;
-		struct Vertex _v2 = { state_id, _vertex.s1pos, _vertex.npos + 1, _vertex.s3pos, _vertex.npos + 1,   _vertex.s1pos, _vertex.s2pos, _vertex.s3pos, _vertex.npos };
-			_v2.p_id = _vertex.id;
-			_v2.cost = _vertex.cost + distance(_vertex.s2pos, _vertex.npos + 1, s2);
-			if(_v2.cost < exploredcost[expid])
-			{
-				exploredcost[expid] = _v2.cost;
-				bookkeeping[state_id] = _v2;
-				state_id++;
-				Push(_v2);
-				explored[expid] = 1;
-			}
+		struct Vertex _v2 = { state_id, _vertex.s1pos, _vertex.npos + 1, _vertex.s3pos, _vertex.npos+1, _vertex.id, _vertex.s1pos, _vertex.s2pos, _vertex.s3pos, _vertex.npos };
+		_v2.cost = _vertex.cost + distance(_vertex.s2pos, _vertex.npos + 1, s2);
+		if(_v2.cost < exploredcost[expid])
+		{
+			exploredcost[expid] = _v2.cost;
+			bookkeeping[state_id] = _v2;
+			state_id++;
+			Push(_v2);
+			explored[expid] = 1;
+		}
 
 		expid = (_vertex.npos + 1) + _vertex.s2pos * 100 + _vertex.s1pos*10000;
-		struct Vertex _v3 = { state_id, _vertex.s1pos, _vertex.s2pos, _vertex.npos + 1, _vertex.npos + 1,  _vertex.s1pos, _vertex.s2pos, _vertex.s3pos, _vertex.npos };
-			_v3.p_id = _vertex.id;
-			_v3.cost = _vertex.cost + distance(_vertex.s3pos, _vertex.npos + 1, s3);
-			if(_v3.cost < exploredcost[expid])
-			{			
-				exploredcost[expid] = _v3.cost;
-				bookkeeping[state_id] = _v3;
-				state_id++;
-				Push(_v3);
-				explored[expid] = 1;
-			}
+		struct Vertex _v3 = { state_id, _vertex.s1pos, _vertex.s2pos, _vertex.npos + 1, _vertex.npos+1, _vertex.id, _vertex.s1pos, _vertex.s2pos, _vertex.s3pos, _vertex.npos };
+		_v3.cost = _vertex.cost + distance(_vertex.s3pos, _vertex.npos + 1, s3);
+		if(_v3.cost < exploredcost[expid])
+		{			
+			exploredcost[expid] = _v3.cost;
+			bookkeeping[state_id] = _v3;
+			state_id++;
+			Push(_v3);
+			explored[expid] = 1;
+		}
 				/* Let's keep ID-s of subsolutions, the end-configurations after we serve all request points.*/
 		if (_vertex.npos + 1 == request_count)
 		{
