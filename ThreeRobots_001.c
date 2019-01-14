@@ -24,7 +24,7 @@
 //#define DEBUG					/* Forget that this egzists*/
 //#define DRAWNODES				/* If we want to draw nodes of our graph. */
 //#define PRINT					/* This one is not needed neither. */
-
+void GenerateNeigbors1(struct Vertex _vertex);
 #define XBORDER 700
 #define YBORDER 485
 
@@ -76,6 +76,7 @@ void GeneratePermutations();
 void FindOptSolution();
 void InitializeAlgorithm();
 double distance(int, int, int);
+void ReStart();
 
 int s1, s2, s3, position;
 int subsolutions_count = 0;
@@ -211,7 +212,8 @@ int main(int argc, char **argv)
 			     XLookupString(&report.xkey,pb_txt,255,&keyR,0);
 				 struct Pxy p00 = {0,0};
 			     if(pb_txt[0] == 'e') { clear_area(p00, win_width, win_height, 1);}
-				 if(pb_txt[0] == 'q') exit(-1);
+				else if(pb_txt[0] == 'q') exit(-1);
+				else if (pb_txt[0] == 'r') ReStart();
 			}
 				break;		
 			default: 
@@ -224,9 +226,17 @@ int main(int argc, char **argv)
 }
 
 /* ############################# Algorithm ################################## */
-
+int explored[20000000];
+int exploredcost[20000000];
 void InitializeAlgorithm()
 {
+	
+	for(int i = 0; i <= 20000000; i++)
+	{
+		exploredcost[i] = INF*10;
+		explored[i] = 2;
+	}
+	
 	/* From linked list to adjcency matrix graph. */
 	for(int i = 0; i < request_count+3; i++)
 	{
@@ -260,7 +270,7 @@ void InitializeAlgorithm()
 		{graph[i][j] = graphlist[i-3].neigbours_weight[j-3];}	
 	}
 
-	#ifdef PRINT					
+	//#ifdef PRINT					
 	for(int i = 0; i < request_count+3; i++)
 	{
 		printf(",{");
@@ -268,7 +278,8 @@ void InitializeAlgorithm()
 		{	printf("graph[%d][%d] = %f\n",i,j,graph[i][j]);}
 			printf("}\n");
 	}
-	#endif
+	//#endif
+	PrintGraph();
 	
 
 	for (int i = 0; i < 30; i++)
@@ -293,11 +304,9 @@ void GeneratePermutations()
 		Pop();
 		GenerateNeigbors(mVertex);
 	}
-	printf("Neighbours generated!\n");
 	FindOptSolution();
 	redraw();
 }
-
 double currentminimum = INF+100;
 void GenerateNeigbors(struct Vertex _vertex)
 {
@@ -328,15 +337,71 @@ void GenerateNeigbors(struct Vertex _vertex)
 		Push(_v2);
 		Push(_v3);
 
-	
 		/* Let's keep ID-s of subsolutions, the end-configurations after we serve all request points.*/
 		if (_vertex.npos + 1 == request_count)
 		{
 			if (minEndPosition.cost > _v1.cost)
 				minEndPosition = _v1;
-			if (minEndPosition.cost > _v2.cost)
+			else if (minEndPosition.cost > _v2.cost)
 				minEndPosition = _v2;
-			if (minEndPosition.cost > _v3.cost)
+			else if (minEndPosition.cost > _v3.cost)
+				minEndPosition = _v3;
+		}
+	}
+}
+
+void GenerateNeigbors1(struct Vertex _vertex)
+{
+	int expid = 0;
+	if (_vertex.npos + 1 <= request_count)
+	{
+		expid = (_vertex.npos + 1) * 10000 + _vertex.s2pos * 100 + _vertex.s3pos;
+
+		struct Vertex _v1 = { state_id, _vertex.npos + 1, _vertex.s2pos, _vertex.s3pos, _vertex.npos + 1,  _vertex.s1pos, _vertex.s2pos, _vertex.s3pos, _vertex.npos };
+			_v1.p_id = _vertex.id;
+			_v1.cost = _vertex.cost + distance(_vertex.s1pos, _vertex.npos + 1, s1);
+			if(_v1.cost < exploredcost[expid])
+			{
+				exploredcost[expid] = _v1.cost;
+				bookkeeping[state_id] = _v1;
+				state_id++;
+				Push(_v1);
+				explored[expid] = 1;
+			}
+		
+		expid = (_vertex.npos + 1) * 100 + _vertex.s1pos * 10000 + _vertex.s3pos;
+		struct Vertex _v2 = { state_id, _vertex.s1pos, _vertex.npos + 1, _vertex.s3pos, _vertex.npos + 1,   _vertex.s1pos, _vertex.s2pos, _vertex.s3pos, _vertex.npos };
+			_v2.p_id = _vertex.id;
+			_v2.cost = _vertex.cost + distance(_vertex.s2pos, _vertex.npos + 1, s2);
+			if(_v2.cost < exploredcost[expid])
+			{
+				exploredcost[expid] = _v2.cost;
+				bookkeeping[state_id] = _v2;
+				state_id++;
+				Push(_v2);
+				explored[expid] = 1;
+			}
+
+		expid = (_vertex.npos + 1) + _vertex.s2pos * 100 + _vertex.s1pos*10000;
+		struct Vertex _v3 = { state_id, _vertex.s1pos, _vertex.s2pos, _vertex.npos + 1, _vertex.npos + 1,  _vertex.s1pos, _vertex.s2pos, _vertex.s3pos, _vertex.npos };
+			_v3.p_id = _vertex.id;
+			_v3.cost = _vertex.cost + distance(_vertex.s3pos, _vertex.npos + 1, s3);
+			if(_v3.cost < exploredcost[expid])
+			{			
+				exploredcost[expid] = _v3.cost;
+				bookkeeping[state_id] = _v3;
+				state_id++;
+				Push(_v3);
+				explored[expid] = 1;
+			}
+				/* Let's keep ID-s of subsolutions, the end-configurations after we serve all request points.*/
+		if (_vertex.npos + 1 == request_count)
+		{
+			if (minEndPosition.cost > _v1.cost)
+				minEndPosition = _v1;
+			else if (minEndPosition.cost > _v2.cost)
+				minEndPosition = _v2;
+			else if (minEndPosition.cost > _v3.cost)
 				minEndPosition = _v3;
 		}
 	}
@@ -436,6 +501,8 @@ void MoveServer(struct Robot rb, struct RequestPoint* reqPoint)
 	}
 }
 
+void ReStart()
+{}
 /* ################################################################################### */
 
 void redraw()
