@@ -319,7 +319,7 @@ void GenerateNeigbors(struct Vertex _vertex)
 		_v1.cost = _vertex.cost + distance(_vertex.s1pos, _vertex.npos + 1, s1);
 		bookkeeping[state_id] = _v1;
 		state_id++;
-		Push(_v1);
+		Push(_v1);	/* Improvement should happen here, since*/
 		
 
 		struct Vertex _v2 = { state_id, _vertex.s1pos, _vertex.npos + 1, _vertex.s3pos, _vertex.npos+1, _vertex.id, _vertex.s1pos, _vertex.s2pos, _vertex.s3pos, _vertex.npos };
@@ -333,8 +333,6 @@ void GenerateNeigbors(struct Vertex _vertex)
 		bookkeeping[state_id] = _v3;
 		state_id++;
 		Push(_v3);
-
-		/*We have to keep generating every possible solution. */
 
 		/* Let's keep ID-s of subsolutions, the end-configurations after we serve all request points.*/
 		if (_vertex.npos + 1 == request_count)
