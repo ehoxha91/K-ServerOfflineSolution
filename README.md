@@ -1,4 +1,4 @@
-# K-ServerOfflineSolution
+# K-Server Offline Solution
 K-3 Server Problem Optimal Offline Solution
 
 This project is solution to the k=3 server problem, offline strategy to find a guaranteed optimal solution. 
